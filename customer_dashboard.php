@@ -1,11 +1,9 @@
 <?php
 session_start();
-if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'customer') {
-    header("Location: login_register.php");
-    exit;
-}
 
+// Database connection
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
+
 if ($db->connect_error) {
     die("Connection failed: " . $db->connect_error);
 }
@@ -182,6 +180,32 @@ if (isset($_POST['update_quantity'])) {
     exit;
 }
 
+// Fetch order history for the user
+$order_history = [];
+$order_query = $db->prepare("SELECT o.id AS order_id, o.order_date FROM orders o WHERE o.user_id = ? ORDER BY o.order_date DESC");
+$order_query->bind_param("i", $user_id);
+$order_query->execute();
+$orders = $order_query->get_result()->fetch_all(MYSQLI_ASSOC);
+$order_query->close();
+
+foreach ($orders as $order) {
+    $order_id = $order['order_id'];
+    $order_date = $order['order_date'];
+
+    // Fetch items for each order
+    $items_query = $db->prepare("SELECT oi.product_id, oi.service_id, oi.quantity, p.name AS product_name, s.name AS service_name, p.price AS product_price, s.price AS service_price FROM order_items oi LEFT JOIN products p ON oi.product_id = p.id LEFT JOIN services s ON oi.service_id = s.id WHERE oi.order_id = ?");
+    $items_query->bind_param("i", $order_id);
+    $items_query->execute();
+    $items = $items_query->get_result()->fetch_all(MYSQLI_ASSOC);
+    $items_query->close();
+
+    $order_history[] = [
+        'order_id' => $order_id,
+        'order_date' => $order_date,
+        'items' => $items
+    ];
+}
+
 $db->close();
 
 function sanitizeFilename($string) {
@@ -208,177 +232,145 @@ function sanitizeFilename($string) {
 ?>
 
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kunden-Dashboard</title>
-    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Include Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100">
-    <?php include 'navbar.php'; ?>
+<body class="bg-white">
+<?php include 'navbar.php'; ?>
+    <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold mb-4">Kunden-Dashboard</h1>
 
-    <main class="bg-white">
-        <div class="mx-auto max-w-7xl px-6 lg:px-8">
-            <h1 class="text-2xl font-bold tracking-tight text-gray-900 mb-8">Kunden-Dashboard</h1>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8">
-                <!-- Left Side - Product List -->
-                <div>
-                    <h2 class="text-2xl font-bold tracking-tight text-gray-900 mb-4">Produkte</h2>
-                    <div class="space-y-8">
-                        <?php foreach ($products as $product): ?>
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <h3 class="text-lg font-medium text-gray-900">
-                                        <a href="product_detail.php?id=<?php echo htmlspecialchars($product['id']); ?>"><?php echo htmlspecialchars($product['name']); ?></a>
-                                    </h3>
-                                    <p class="mt-1 text-sm text-gray-500"><?php echo htmlspecialchars($product['description']); ?></p>
-                                    <p class="mt-1 text-sm font-medium text-gray-900"><?php echo htmlspecialchars($product['price']); ?> €</p>
-                                </div>
-                                <div>
-                                    <form action="customer_dashboard.php" method="GET" class="inline-block">
-                                        <input type="hidden" name="add_to_cart" value="true" />
-                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['id']); ?>" />
-                                        <label for="quantity_<?php echo htmlspecialchars($product['id']); ?>" class="sr-only">Menge</label>
-                                        <input
-                                            type="number"
-                                            id="quantity_<?php echo htmlspecialchars($product['id']); ?>"
-                                            name="quantity"
-                                            min="1"
-                                            value="1"
-                                            class="w-20 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                        />
-                                        <input type="hidden" name="quantity" id="quantity_input_<?php echo htmlspecialchars($product['id']); ?>" value="1" />
-                                        <button type="submit" class="ml-2 bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600">In Warenkorb</button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-
-                <!-- Right Side - Shopping Cart -->
-                <div>
-                    <h2 class="text-2xl font-bold tracking-tight text-gray-900 mb-4">Warenkorb</h2>
-                    <div class="bg-white rounded-2xl shadow-xl p-8">
-                        <?php if (empty($cart_products) && empty($cart_services)): ?>
-                            <p class="text-gray-600">Ihr Warenkorb ist leer.</p>
-                        <?php else: ?>
-                            <form action="customer_dashboard.php" method="POST">
-                                <div class="flow-root">
-                                    <ul role="list" class="-my-6 divide-y divide-gray-200">
-                                        <!-- Products in Cart -->
-                                        <?php foreach ($cart_products as $item): ?>
-                                            <li class="flex py-6">
-                                                <div class="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                                    <img src="./images/<?php echo htmlspecialchars(sanitizeFilename($item['product']['name'])); ?>.jpeg" alt="<?php echo htmlspecialchars($item['product']['name']); ?>" class="h-full w-full object-cover">
-                                                </div>
-
-                                                <div class="ml-4 flex flex-1 flex-col">
-                                                    <div>
-                                                        <div class="flex justify-between text-base font-medium text-gray-900">
-                                                            <h3>
-                                                                <a href="product_detail.php?id=<?php echo htmlspecialchars($item['product']['id']); ?>"><?php echo htmlspecialchars($item['product']['name']); ?></a>
-                                                            </h3>
-                                                            <p class="ml-4"><?php echo htmlspecialchars($item['product']['price']); ?> €</p>
-                                                        </div>
-                                                        <p class="mt-1 text-sm text-gray-500"><?php echo htmlspecialchars($item['product']['description']); ?></p>
-                                                    </div>
-                                                    <div class="flex flex-1 items-end justify-between text-sm">
-                                                        <div>
-                                                            <label for="quantity_<?php echo htmlspecialchars($item['product']['id']); ?>" class="sr-only">Menge</label>
-                                                            <input
-                                                                type="number"
-                                                                id="quantity_<?php echo htmlspecialchars($item['product']['id']); ?>"
-                                                                name="quantity"
-                                                                min="1"
-                                                                value="<?php echo htmlspecialchars($item['quantity']); ?>"
-                                                                class="w-20 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                                            />
-                                                            <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($item['product']['id']); ?>" />
-                                                        </div>
-
-                                                        <div class="flex">
-                                                            <button type="submit" name="update_quantity" class="font-medium text-green-600 hover:text-green-500">Aktualisieren</button>
-                                                            <a href="customer_dashboard.php?remove_from_cart=true&product_id=<?php echo htmlspecialchars($item['product']['id']); ?>" class="ml-4 font-medium text-red-600 hover:text-red-500">Entfernen</a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </li>
-                                        <?php endforeach; ?>
-
-                                        <!-- Services in Cart -->
-                                        <?php foreach ($cart_services as $item): ?>
-                                            <li class="flex py-6">
-                                                <div class="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                                    <img src="./images/<?php echo htmlspecialchars(sanitizeFilename($item['service']['name'])); ?>.jpeg" alt="<?php echo htmlspecialchars($item['service']['name']); ?>" class="h-full w-full object-cover">
-                                                </div>
-
-                                                <div class="ml-4 flex flex-1 flex-col">
-                                                    <div>
-                                                        <div class="flex justify-between text-base font-medium text-gray-900">
-                                                            <h3>
-                                                                <a href="service_detail.php?id=<?php echo htmlspecialchars($item['service']['id']); ?>"><?php echo htmlspecialchars($item['service']['name']); ?></a>
-                                                            </h3>
-                                                            <p class="ml-4"><?php echo htmlspecialchars($item['service']['price']); ?> €</p>
-                                                        </div>
-                                                        <p class="mt-1 text-sm text-gray-500"><?php echo htmlspecialchars($item['service']['description']); ?></p>
-                                                    </div>
-                                                    <div class="flex flex-1 items-end justify-between text-sm">
-                                                        <div>
-                                                            <label for="quantity_<?php echo htmlspecialchars($item['service']['id']); ?>" class="sr-only">Menge</label>
-                                                            <input
-                                                                type="number"
-                                                                id="quantity_<?php echo htmlspecialchars($item['service']['id']); ?>"
-                                                                name="quantity"
-                                                                min="1"
-                                                                value="<?php echo htmlspecialchars($item['quantity']); ?>"
-                                                                class="w-20 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                                            />
-                                                            <input type="hidden" name="service_id" value="<?php echo htmlspecialchars($item['service']['id']); ?>" />
-                                                        </div>
-
-                                                        <div class="flex">
-                                                            <button type="submit" name="update_quantity" class="font-medium text-green-600 hover:text-green-500">Aktualisieren</button>
-                                                            <a href="customer_dashboard.php?remove_from_cart=true&service_id=<?php echo htmlspecialchars($item['service']['id']); ?>" class="ml-4 font-medium text-red-600 hover:text-red-500">Entfernen</a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </li>
-                                        <?php endforeach; ?>
-                                    </ul>
-                                </div>
-
-                                <div class="mt-8">
-                                    <div class="flex justify-between text-base font-medium text-gray-900">
-                                        <p>Zwischensumme</p>
-                                        <p><?php echo number_format($subtotal, 2); ?> €</p>
-                                    </div>
-                                    <p class="mt-0.5 text-sm text-gray-500">Versand und Steuern werden bei der Kasse berechnet.</p>
-                                    <div class="mt-6">
-                                        <a href="checkout.php" class="flex items-center justify-center rounded-md border border-transparent bg-green-600 px-6 py-3 text-base font-medium text-white shadow-xs hover:bg-green-700">Zur Kasse</a>
-                                    </div>
-                                    <div class="mt-6 flex justify-center text-center text-sm text-gray-500">
-                                        <p>
-                                            oder
-                                            <a href="products.php" class="font-medium text-green-600 hover:text-green-500">
-                                                Weiter einkaufen
-                                                <span aria-hidden="true"> &rarr;</span>
-                                            </a>
-                                        </p>
-                                    </div>
-                                </div>
-                            </form>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
+        <!-- Products Section -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Produkte</h2>
+            <ul>
+                <?php foreach ($products as $product): ?>
+                    <li class="flex justify-between py-2 border-b">
+                        <span><?php echo htmlspecialchars($product['name']); ?></span>
+                        <span><?php echo number_format($product['price'], 2) . ' €'; ?></span>
+                        <form action="?add_to_cart=1&product_id=<?php echo $product['id']; ?>" method="post" class="flex space-x-2">
+                            <input type="number" name="quantity" value="1" min="1" class="w-16 px-2 py-1 border border-gray-300 rounded-md">
+                            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">In Warenkorb</button>
+                        </form>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
         </div>
-    </main>
 
-    <footer class="bg-green-700 text-white p-4 mt-8">
+        <!-- Services Section -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Dienstleistungen</h2>
+            <ul>
+                <?php foreach ($services as $service): ?>
+                    <li class="flex justify-between py-2 border-b">
+                        <span><?php echo htmlspecialchars($service['name']); ?></span>
+                        <span><?php echo number_format($service['price'], 2) . ' €'; ?></span>
+                        <form action="?add_to_cart=1&service_id=<?php echo $service['id']; ?>" method="post" class="flex space-x-2">
+                            <input type="number" name="quantity" value="1" min="1" class="w-16 px-2 py-1 border border-gray-300 rounded-md">
+                            <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">In Warenkorb</button>
+                        </form>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+
+        <!-- Cart Section -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Warenkorb</h2>
+            <?php if (empty($cart_products) && empty($cart_services)): ?>
+                <p>Ihr Warenkorb ist leer.</p>
+            <?php else: ?>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="p-2">Name</th>
+                            <th class="p-2">Preis</th>
+                            <th class="p-2">Menge</th>
+                            <th class="p-2">Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($cart_products as $item): ?>
+                            <tr class="border-b">
+                                <td class="p-2"><?php echo htmlspecialchars($item['product']['name']); ?></td>
+                                <td class="p-2"><?php echo number_format($item['product']['price'], 2) . ' €'; ?></td>
+                                <td class="p-2">
+                                    <form action="update_quantity.php" method="post" class="flex space-x-2">
+                                        <input type="hidden" name="product_id" value="<?php echo $item['product']['id']; ?>">
+                                        <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="w-16 px-2 py-1 border border-gray-300 rounded-md">
+                                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aktualisieren</button>
+                                    </form>
+                                </td>
+                                <td class="p-2">
+                                    <a href="?remove_from_cart=1&product_id=<?php echo $item['product']['id']; ?>" class="text-red-600 hover:text-red-700">Entfernen</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <?php foreach ($cart_services as $item): ?>
+                            <tr class="border-b">
+                                <td class="p-2"><?php echo htmlspecialchars($item['service']['name']); ?></td>
+                                <td class="p-2"><?php echo number_format($item['service']['price'], 2) . ' €'; ?></td>
+                                <td class="p-2">
+                                    <form action="update_quantity.php" method="post" class="flex space-x-2">
+                                        <input type="hidden" name="service_id" value="<?php echo $item['service']['id']; ?>">
+                                        <input type="number" name="quantity" value="<?php echo $item['quantity']; ?>" min="1" class="w-16 px-2 py-1 border border-gray-300 rounded-md">
+                                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aktualisieren</button>
+                                    </form>
+                                </td>
+                                <td class="p-2">
+                                    <a href="?remove_from_cart=1&service_id=<?php echo $item['service']['id']; ?>" class="text-red-600 hover:text-red-700">Entfernen</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <div class="mt-4 flex justify-between font-bold">
+                    <span>Zwischensumme</span>
+                    <span><?php echo number_format($subtotal, 2) . ' €'; ?></span>
+                </div>
+                <a href="checkout.php" class="block mt-4 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 w-fit">Zur Kasse</a>
+            <?php endif; ?>
+        </div>
+
+        <!-- Order History Section -->
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2">Bestellhistorie</h2>
+            <?php if (empty($order_history)): ?>
+                <p>Sie haben noch keine Bestellungen abgeschlossen.</p>
+            <?php else: ?>
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="p-2">Bestellnummer</th>
+                            <th class="p-2">Datum</th>
+                            <th class="p-2">Artikel</th>
+                            <th class="p-2">Menge</th>
+                            <th class="p-2">Preis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($order_history as $order): ?>
+                            <?php foreach ($order['items'] as $item): ?>
+                                <tr class="border-b">
+                                    <td class="p-2"><?php echo htmlspecialchars($order['order_id']); ?></td>
+                                    <td class="p-2"><?php echo htmlspecialchars($order['order_date']); ?></td>
+                                    <td class="p-2"><?php echo htmlspecialchars($item['product_name'] ?? $item['service_name']); ?></td>
+                                    <td class="p-2"><?php echo htmlspecialchars($item['quantity']); ?></td>
+                                    <td class="p-2"><?php echo number_format(($item['product_price'] ?? $item['service_price']) * $item['quantity'], 2) . ' €'; ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+    </div>
+<footer class="bg-green-700 text-white p-4">
         <div class="container mx-auto text-center">
             <p>&copy; 2025 Garten-Webshop</p>
         </div>

@@ -1,9 +1,5 @@
 <?php
 session_start();
-if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'customer') {
-    header("Location: login_register.php");
-    exit;
-}
 ?>
 
 <!DOCTYPE html>
@@ -30,7 +26,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'customer') {
         </div>
     </main>
 
-    <footer class="bg-green-700 text-white p-4 mt-8">
+    <footer class="bg-green-700 text-white p-4 mt-auto">
         <div class="container mx-auto text-center">
             <p>&copy; 2025 Garten-Webshop</p>
         </div>

@@ -21,13 +21,9 @@
             </div>
             <div class="hidden lg:flex lg:items-center gap-x-2">
                 <?php if (!isset($_SESSION['user'])): ?>
-                    <button class="flex items-center justify-center rounded-md bg-green-700 text-white px-6 py-2.5 font-semibold hover:shadow-lg hover:drop-shadow transition duration-200">
-                        <a href="login_register.php">Login</a>
-                    </button>
+                        <a type="button" href="login_register.php" class="flex items-center justify-center rounded-md bg-green-700 hover:bg-white hover:text-green-600 transition-colors duration-150 text-white px-6 py-2.5 font-semibold">Login</a>
                 <?php else: ?>
-                    <button class="flex items-center justify-center rounded-md bg-green-700 text-white px-6 py-2.5 font-semibold hover:shadow-lg hover:drop-shadow transition duration-200">
-                        <a href="customer_dashboard.php">Dashboard</a>
-                    </button>
+                        <a href="customer_dashboard.php" class="flex items-center justify-center rounded-md bg-green-700 hover:bg-white hover:text-green-600 transition-colors duration-150 text-white px-6 py-2.5 font-semibold">Dashboard</a>
                 <?php endif; ?>
             </div>
             <div class="flex items-center justify-center lg:hidden">

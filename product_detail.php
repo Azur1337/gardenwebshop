@@ -61,7 +61,7 @@ function sanitizeFilename($string) {
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10 lg:gap-y-0">
                 <!-- Product Image -->
                 <div class="flex justify-center">
-                    <img src="./images/<?php echo htmlspecialchars(sanitizeFilename($product['name'])); ?>.jpeg" alt="<?php echo htmlspecialchars($product['name']); ?>" class="w-full max-w-2xl rounded-lg object-cover">
+                    <img src="./images/<?php echo htmlspecialchars(sanitizeFilename($product['name'])); ?>.jpeg" alt="<?php echo htmlspecialchars($product['name']); ?>" class="w-full max-w-2xl rounded-lg object-fit">
                 </div>
 
                 <!-- Product Details -->
@@ -75,31 +75,6 @@ function sanitizeFilename($string) {
                     <div class="mt-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-2">Optionen</h3>
                         <div class="flex flex-col md:flex-row md:space-x-4">
-                            <!-- Color Selector -->
-                            <div class="mb-4 md:mb-0">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Farbe</label>
-                                <select class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors">
-                                    <option value="black">Schwarz</option>
-                                    <option value="white">Weiß</option>
-                                    <option value="gray">Grau</option>
-                                </select>
-                            </div>
-
-                            <!-- Size Selector -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Größe</label>
-                                <select class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors">
-                                    <option value="xxs">XXS</option>
-                                    <option value="xs">XS</option>
-                                    <option value="s">S</option>
-                                    <option value="m">M</option>
-                                    <option value="l">L</option>
-                                    <option value="xl">XL</option>
-                                    <option value="2xl">2XL</option>
-                                    <option value="3xl">3XL</option>
-                                </select>
-                            </div>
-
                             <!-- Quantity Picker -->
                             <div class="mb-4 md:mb-0">
                                 <label for="quantity" class="block text-sm font-medium text-gray-700 mb-2">Menge</label>
@@ -124,18 +99,6 @@ function sanitizeFilename($string) {
                             <button type="submit" class="bg-green-500 text-white text-lg font-medium px-6 py-3 rounded-lg shadow hover:bg-green-600">In Warenkorb</button>
                         </form>
                     </div>
-
-                    <!-- Product Highlights -->
-                    <div class="mt-12">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Highlights</h3>
-                        <ul class="list-disc list-inside">
-                            <li>Handgefertigt und lokal gefrickelt</li>
-                            <li>Mit unseren proprietären Farben gebleicht</li>
-                            <li>Vorbehandelt und vorgeschmolzen</li>
-                            <li>Ultra-softmaxte 100% Baumwolle</li>
-                        </ul>
-                    </div>
-
                     <!-- Product Details -->
                     <div class="mt-12">
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Details</h3>

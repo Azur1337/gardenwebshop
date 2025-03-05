@@ -16,7 +16,7 @@
                         <h1 class="text-4xl lg:text-6xl font-bold">Deine <span class="text-green-700">grüne</span> Welt, unsere Auswahl</h1>
                         <div class="w-20 h-2 bg-green-700 my-4"></div>
                         <p class="text-xl mb-10">Entdecke unsere Auswahl an Gartenutensilien und Dienstleistungen.</p>
-                        <a class="bg-green-700 text-white text-2xl font-medium px-4 py-2 rounded shadow" href="products.php">Mehr erfahren</a>
+                        <a class="bg-green-700 hover:bg-green-600 transition-colors duration-150 text-white text-2xl font-medium px-4 py-2 rounded-lg shadow" href="products.php">Zu den Produkten</a>
                     </div>
                 </header>
             </div>

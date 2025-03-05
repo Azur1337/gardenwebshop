@@ -1,5 +1,4 @@
 <?php
-
 function sanitizeFilename($string) {
     $transliterationTable = array(
         'ä' => 'ae',
@@ -18,6 +17,7 @@ function sanitizeFilename($string) {
 
     return strtolower($sanitized);
 }
+
 
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
 if ($db->connect_error) {
@@ -42,7 +42,7 @@ $result = $db->query("SELECT * FROM products");
             <div class="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
                 <?php while ($row = $result->fetch_assoc()): ?>
                     <div class="group relative">
-                        <img src="./images/<?php echo sanitizeFilename($row['name']); ?>.jpeg" alt="<?php echo $row['name']; ?>" class="aspect-square w-full rounded-md bg-gray-200 object-cover group-hover:opacity-75 lg:aspect-auto lg:h-80">
+                        <img src="./images/<?php echo sanitizeFilename($row['name']); ?>.jpeg" alt="<?php echo $row['name']; ?>" class="aspect-square w-full rounded-md bg-green-200 object-fit group-hover:scale-105 group-hover:opacity-75 transition-all duration-150 lg:aspect-auto lg:h-80">
                         <div class="mt-4 flex justify-between">
                             <div>
                                 <h3 class="text-sm text-gray-700">
@@ -61,10 +61,10 @@ $result = $db->query("SELECT * FROM products");
         </div>
     </main>
 
-   <footer class="bg-green-700 text-white p-4">
+    <footer class="bg-green-700 text-white p-4">
         <div class="container mx-auto text-center">
             <p>&copy; 2025 Garten-Webshop</p>
         </div>
-    </footer> 
+    </footer>
 </body>
 </html>

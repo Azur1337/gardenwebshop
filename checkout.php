@@ -1,11 +1,9 @@
 <?php
 session_start();
-if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'customer') {
-    header("Location: login_register.php");
-    exit;
-}
 
+// Database connection
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
+
 if ($db->connect_error) {
     die("Connection failed: " . $db->connect_error);
 }
@@ -69,30 +67,42 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $zip = $_POST['zip'];
     $city = $_POST['city'];
 
-    // Insert order into the database
+    // Step 1: Insert the order into the orders table
+    $order_stmt = $db->prepare("INSERT INTO orders (user_id, order_date) VALUES (?, NOW())");
+    $order_stmt->bind_param("i", $user_id);
+    if (!$order_stmt->execute()) {
+        die("Error inserting order: " . $db->error);
+    }
+    $order_id = $db->insert_id; // Get the auto-generated order_id
+
+    // Step 2: Insert each cart item into the order_items table
     foreach ($cart_items as $item) {
         if (isset($item['product_id'])) {
             $product_id = $item['product_id'];
             $quantity = $item['quantity'];
-            $product_price = $cart_products[array_search($item['product_id'], array_column($cart_products, 'product', 'product'))]['product']['price'];
+            $product_price = $cart_products[array_search($product_id, array_column($cart_products, 'product', 'id'))]['product']['price'];
 
-            $stmt = $db->prepare("INSERT INTO orders (user_id, product_id, price, quantity) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("iddi", $user_id, $product_id, $product_price, $quantity);
-            $stmt->execute();
-            $stmt->close();
+            $item_stmt = $db->prepare("INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)");
+            $item_stmt->bind_param("iii", $order_id, $product_id, $quantity);
+            if (!$item_stmt->execute()) {
+                die("Error inserting order item: " . $db->error);
+            }
+            $item_stmt->close();
         } elseif (isset($item['service_id'])) {
             $service_id = $item['service_id'];
             $quantity = $item['quantity'];
-            $service_price = $cart_services[array_search($item['service_id'], array_column($cart_services, 'service', 'service'))]['service']['price'];
+            $service_price = $cart_services[array_search($service_id, array_column($cart_services, 'service', 'id'))]['service']['price'];
 
-            $stmt = $db->prepare("INSERT INTO orders (user_id, service_id, price, quantity) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("iddi", $user_id, $service_id, $service_price, $quantity);
-            $stmt->execute();
-            $stmt->close();
+            $item_stmt = $db->prepare("INSERT INTO order_items (order_id, service_id, quantity) VALUES (?, ?, ?)");
+            $item_stmt->bind_param("iii", $order_id, $service_id, $quantity);
+            if (!$item_stmt->execute()) {
+                die("Error inserting order item: " . $db->error);
+            }
+            $item_stmt->close();
         }
     }
 
-    // Clear cart after checkout
+    // Step 3: Clear the cart after checkout
     $clear_cart_query = $db->prepare("DELETE FROM cart_items WHERE user_id = ?");
     $clear_cart_query->bind_param("i", $user_id);
     $clear_cart_query->execute();
@@ -100,33 +110,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $_SESSION['cart'] = [];
 
+    // Redirect to checkout success page
     header("Location: checkout_success.php");
     exit;
 }
 
 $db->close();
-
-function sanitizeFilename($string) {
-    // Convert umlauts to their ASCII equivalents
-    $transliterationTable = array(
-        'ä' => 'ae',
-        'ö' => 'oe',
-        'ü' => 'ue',
-        'Ä' => 'Ae',
-        'Ö' => 'Oe',
-        'Ü' => 'Ue',
-        'ß' => 'ss',
-        ' ' => '_'
-    );
-
-    // Replace special characters
-    $sanitized = strtr($string, $transliterationTable);
-
-    // Remove any remaining special characters
-    $sanitized = preg_replace('/[^a-zA-Z0-9_\-]/', '', $sanitized);
-
-    return strtolower($sanitized);
-}
 ?>
 
 <!DOCTYPE html>
@@ -194,7 +183,7 @@ function sanitizeFilename($string) {
                 <!-- Right Side - Shipping Information -->
                 <div>
                     <h2 class="text-2xl font-bold tracking-tight text-gray-900 mb-4">Versandinformationen</h2>
-                    <form action="checkout.php" method="POST" class="space-y-6">
+                    <form action="" method="POST" class="space-y-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Vollständiger Name</label>
                             <input
@@ -251,7 +240,7 @@ function sanitizeFilename($string) {
         </div>
     </main>
 
-    <footer class="bg-green-700 text-white p-4 mt-8">
+    <footer class="bg-green-700 text-white p-4">
         <div class="container mx-auto text-center">
             <p>&copy; 2025 Garten-Webshop</p>
         </div>
