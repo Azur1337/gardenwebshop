@@ -18,7 +18,6 @@ function sanitizeFilename($string) {
     return strtolower($sanitized);
 }
 
-
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
 if ($db->connect_error) {
     die("Connection failed: " . $db->connect_error);
@@ -31,11 +30,11 @@ $result = $db->query("SELECT * FROM products");
 <head>
     <meta charset="UTF-8">
     <title>Produkte</title>
-     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-100">
 <?php include 'navbar.php'; ?>
-       <main class="bg-white">
+    <main class="bg-white">
         <div class="mx-auto max-w-2xl px-4 py-16 sm:px-6 sm:py-24 lg:max-w-7xl lg:px-8">
             <h2 class="text-2xl font-bold tracking-tight text-gray-900">Produkte</h2>
 
@@ -54,6 +53,14 @@ $result = $db->query("SELECT * FROM products");
                                 <p class="mt-1 text-sm text-gray-500"><?php echo $row['description']; ?></p>
                             </div>
                             <p class="text-sm font-medium text-gray-900"><?php echo $row['price']; ?> €</p>
+                        </div>
+                        <!-- Stock Information -->
+                        <div class="mt-2 text-sm">
+                            <?php if ($row['stock'] > 0): ?>
+                                <span class="text-green-600"><?php echo $row['stock']; ?> verbleibend</span>
+                            <?php else: ?>
+                                <span class="text-red-600">Ausverkauft</span>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endwhile; ?>

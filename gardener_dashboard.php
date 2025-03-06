@@ -1,27 +1,32 @@
 <?php
+// SESSION STARTEN
 session_start();
 
-// Database connection
+// VERBINDUNG ZUR DATENBANK HERSTELLEN
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
 
 if ($db->connect_error) {
-    die("Connection failed: " . $db->connect_error);
+    // Falls die Verbindung zur Datenbank fehlschlägt, wird ein Fehler angezeigt.
+    die("Verbindungsfehler: " . $db->connect_error);
 }
 
-// Fetch total orders, total income, and average spending
+// ABFRAGE DER STATISTIKDATEN
+// Gesamtzahl der Bestellungen abrufen.
 $total_orders_query = $db->query("SELECT COUNT(*) AS total_orders FROM orders");
-$total_orders = $total_orders_query->fetch_assoc()['total_orders'];
+$total_orders = $total_orders_query->fetch_assoc()['total_orders']; // Speichert die Anzahl der Bestellungen.
 $total_orders_query->close();
 
+// Gesamteinkommen berechnen (Produkte + Dienstleistungen).
 $total_income_query = $db->query("
     SELECT SUM(oi.quantity * COALESCE(p.price, s.price)) AS total_income
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.id
     LEFT JOIN services s ON oi.service_id = s.id
 ");
-$total_income = $total_income_query->fetch_assoc()['total_income'] ?? 0;
+$total_income = $total_income_query->fetch_assoc()['total_income'] ?? 0; // Speichert das Gesamtumsatz oder 0, wenn keine Bestellungen vorhanden sind.
 $total_income_query->close();
 
+// Durchschnittliche Ausgaben pro Bestellung berechnen.
 $average_spending_query = $db->query("
     SELECT AVG(order_total) AS average_spending
     FROM (
@@ -32,10 +37,11 @@ $average_spending_query = $db->query("
         GROUP BY oi.order_id
     ) AS order_totals
 ");
-$average_spending = $average_spending_query->fetch_assoc()['average_spending'] ?? 0;
+$average_spending = $average_spending_query->fetch_assoc()['average_spending'] ?? 0; // Speichert die durchschnittlichen Ausgaben oder 0, wenn keine Bestellungen vorhanden sind.
 $average_spending_query->close();
 
-// Fetch services booked, sorted by oldest booking first
+// ABFRAGE DER BUCHUNGEN VON DIENSTLEISTUNGEN
+// Alle gebuchten Dienstleistungen abrufen, sortiert nach dem ältesten Bestelldatum.
 $services_booked_query = $db->query("
     SELECT o.order_date, s.name AS service_name, oi.quantity
     FROM order_items oi
@@ -44,10 +50,10 @@ $services_booked_query = $db->query("
     WHERE oi.service_id IS NOT NULL
     ORDER BY o.order_date ASC
 ");
-$services_booked = $services_booked_query->fetch_all(MYSQLI_ASSOC);
+$services_booked = $services_booked_query->fetch_all(MYSQLI_ASSOC); // Speichert alle gebuchten Dienstleistungen als assoziatives Array.
 $services_booked_query->close();
 
-$db->close();
+$db->close(); // Datenbankverbindung schließen.
 ?>
 
 <!DOCTYPE html>
@@ -55,18 +61,21 @@ $db->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gardener Dashboard</title>
-    <!-- Include Tailwind CSS -->
+    <title>Gärtner-Dashboard</title>
+    <!-- Tailwind CSS EINSCHLUSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-white">
-  <?php include 'navbar.php'; ?>
+    <!-- NAVIGATION-EINSCHLUSS -->
+    <?php include 'navbar.php'; ?>
+
+    <!-- HAUPTINHALT: GÄRTNER-DASHBOARD -->
     <div class="container mx-auto bg-white rounded-lg shadow-md p-6">
         <h1 class="text-2xl font-bold mb-4">Gärtner-Dashboard</h1>
 
-        <!-- Statistics Section -->
+        <!-- STATISTIKSEKTION -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <!-- Total Orders -->
+            <!-- ANZAHL DER BESTELLUNGEN -->
             <div class="bg-green-600 hover:bg-green-500 hover:scale-105 transition-all duration-150 text-white p-4 rounded-lg flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium">Anzahl der Bestellungen</p>
@@ -77,7 +86,7 @@ $db->close();
                 </svg>
             </div>
 
-            <!-- Total Income -->
+            <!-- GESAMTEINKOMMEN -->
             <div class="bg-green-600 hover:bg-green-500 hover:scale-105 transition-all duration-150 text-white p-4 rounded-lg flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium">Gesamtumsatz</p>
@@ -88,7 +97,7 @@ $db->close();
                 </svg>
             </div>
 
-            <!-- Average Spending -->
+            <!-- DURCHSCHNITTLICHE AUSGABEN PRO BESTELLUNG -->
             <div class="bg-green-600 hover:bg-green-500 hover:scale-105 transition-all duration-150 text-white p-4 rounded-lg flex items-center justify-between">
                 <div>
                     <p class="text-sm font-medium">Durchschnittliche Ausgaben pro Bestellung</p>
@@ -100,12 +109,14 @@ $db->close();
             </div>
         </div>
 
-        <!-- Services Booked Section -->
+        <!-- SEKTION FÜR BUCHUNGEN VON DIENSTLEISTUNGEN -->
         <div class="mb-6">
             <h2 class="text-xl font-semibold mb-2">Buchungen von Dienstleistungen</h2>
             <?php if (empty($services_booked)): ?>
+                <!-- FALL: KEINE BUCHUNGEN VORHANDEN -->
                 <p>Es wurden noch keine Dienstleistungen gebucht.</p>
             <?php else: ?>
+                <!-- TABELLE MIT BUCHUNGEN -->
                 <table class="w-full border-collapse">
                     <thead>
                         <tr class="bg-green-100">
@@ -116,6 +127,7 @@ $db->close();
                     </thead>
                     <tbody>
                         <?php foreach ($services_booked as $service): ?>
+                            <!-- JEDER EINTRAG IN DER TABELLE -->
                             <tr class="border-b">
                                 <td class="p-2"><?php echo htmlspecialchars($service['service_name']); ?></td>
                                 <td class="p-2"><?php echo htmlspecialchars($service['quantity']); ?></td>
@@ -127,11 +139,12 @@ $db->close();
             <?php endif; ?>
         </div>
     </div>
-<footer class="bg-green-700 text-white p-4">
+
+    <!-- FOOTER -->
+    <footer class="bg-green-700 text-white p-4">
         <div class="container mx-auto text-center">
             <p>&copy; 2025 Garten-Webshop</p>
         </div>
     </footer>
-
 </body>
 </html>

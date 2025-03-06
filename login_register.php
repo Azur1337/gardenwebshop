@@ -1,73 +1,86 @@
 <?php
-session_start();
-
-// Database connection
+// DATENBANKVERBINDUNG HERSTELLEN
 $db = new mysqli("localhost", "root", "1337", "garden_shop");
 if ($db->connect_error) {
-    die("Connection failed: " . $db->connect_error);
+    // Falls die Verbindung zur Datenbank fehlschlägt, wird ein Fehler angezeigt.
+    die("Verbindungsfehler: " . $db->connect_error);
 }
 
-// Handle Login
-$login_error = '';
+// ANMELDUNGSHANDLING
+$login_error = ''; // Variable für Anmeldefehlermeldungen.
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+    // Wenn das Formular zur Anmeldung über POST gesendet wurde:
+    $username = $_POST['username']; // Benutzername aus dem Formular abrufen.
+    $password = $_POST['password']; // Passwort aus dem Formular abrufen.
 
+    // SQL-Abfrage vorbereiten, um den Benutzer anhand des Benutzernamens zu finden.
     $stmt = $db->prepare("SELECT id, password, role FROM users WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $stmt->store_result();
-    $stmt->bind_result($user_id, $hashed_password, $role);
-    $stmt->fetch();
+    $stmt->bind_param("s", $username); // Platzhalter (?) durch den Benutzernamen ersetzen.
+    $stmt->execute(); // Statement ausführen.
+    $stmt->store_result(); // Ergebnis zwischenspeichern.
+    $stmt->bind_result($user_id, $hashed_password, $role); // Ergebniswerte in Variablen binden.
+    $stmt->fetch(); // Ergebniszeile abrufen.
 
+    // Überprüfen, ob genau ein Benutzer gefunden wurde und das Passwort korrekt ist.
     if ($stmt->num_rows == 1 && password_verify($password, $hashed_password)) {
+        // Wenn die Anmeldung erfolgreich ist, speichert der Code die Benutzer-ID und Rolle in der Session.
         $_SESSION['user'] = [
             'id' => $user_id,
             'role' => $role
         ];
+
+        // Weiterleitung basierend auf der Benutzerrolle.
         if ($role === 'customer') {
-            header("Location: customer_dashboard.php");
+            header("Location: customer_dashboard.php"); // Kunde wird zur Kunden-Dashboard-Seite weitergeleitet.
         } elseif ($role === 'gardener') {
-            header("Location: gardener_dashboard.php");
+            header("Location: gardener_dashboard.php"); // Gärtner wird zur Gärtner-Dashboard-Seite weitergeleitet.
         }
     } else {
+        // Falls die Anmeldeinformationen ungültig sind, wird eine Fehlermeldung gesetzt.
         $login_error = "Ungültiger Benutzername oder Passwort!";
     }
 
-    $stmt->close();
+    $stmt->close(); // Prepared Statement schließen.
 }
 
-// Handle Registration
-$registration_error = '';
-$registration_success = '';
+// REGISTRIERUNGS-HANDLING
+$registration_error = ''; // Variable für Registrierungsfehlermeldungen.
+$registration_success = ''; // Variable für Erfolgsnachricht bei erfolgreicher Registrierung.
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['register'])) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    $role = $_POST['role'];
+    // Wenn das Formular zur Registrierung über POST gesendet wurde:
+    $username = $_POST['username']; // Benutzername aus dem Formular abrufen.
+    $password = $_POST['password']; // Passwort aus dem Formular abrufen.
+    $confirm_password = $_POST['confirm_password']; // Bestätigung des Passworts aus dem Formular abrufen.
+    $role = $_POST['role']; // Benutzerrolle (Kunde/Gärtner) aus dem Formular abrufen.
 
+    // Prüfen, ob die Passwörter übereinstimmen.
     if ($password !== $confirm_password) {
-        $registration_error = "Passwörter stimmen nicht überein";
+        $registration_error = "Passwörter stimmen nicht überein"; // Setzt einen Fehler, wenn die Passwörter nicht übereinstimmen.
     } else {
+        // Passwort hashen für Sicherheit.
         $hashed_password = password_hash($password, PASSWORD_BCRYPT);
 
+        // SQL-Abfrage vorbereiten, um einen neuen Benutzer einzufügen.
         $stmt = $db->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
-        $stmt->bind_param("sss", $username, $hashed_password, $role);
+        $stmt->bind_param("sss", $username, $hashed_password, $role); // Bindet die Parameter an die Platzhalter.
 
         if ($stmt->execute()) {
+            // Wenn die Einfügung erfolgreich war, wird eine Erfolgsmeldung gesetzt.
             $registration_success = "Registrierung erfolgreich! Bitte melden Sie sich an.";
         } else {
+            // Wenn die Einfügung fehlschlägt, wird ein Fehler angezeigt.
             $registration_error = "Registrierung fehlgeschlagen: " . $stmt->error;
         }
 
-        $stmt->close();
+        $stmt->close(); // Prepared Statement schließen.
     }
 }
 
-$db->close();
+$db->close(); // Datenbankverbindung schließen.
 
+// HELPER-FUNKTION FÜR DATEINAMENS-SANITIZATION
 function sanitizeFilename($string) {
-    // Convert umlauts to their ASCII equivalents
+    // Umlaute in ihre ASCII-Äquivalente umwandeln.
     $transliterationTable = array(
         'ä' => 'ae',
         'ö' => 'oe',
@@ -79,12 +92,13 @@ function sanitizeFilename($string) {
         ' ' => '_'
     );
 
-    // Replace special characters
+    // Zeichen im String durch das Transliterationstabelle ersetzen.
     $sanitized = strtr($string, $transliterationTable);
 
-    // Remove any remaining special characters
+    // Alle nicht erlaubten Zeichen entfernen (nur Buchstaben, Zahlen, Unterstriche und Bindestriche sind erlaubt).
     $sanitized = preg_replace('/[^a-zA-Z0-9_\-]/', '', $sanitized);
 
+    // Den bereinigten String in Kleinbuchstaben umwandeln und zurückgeben.
     return strtolower($sanitized);
 }
 ?>
@@ -94,183 +108,93 @@ function sanitizeFilename($string) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login & Register Page</title>
+    <title>Anmelden / Registrieren - Garten-Webshop</title>
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-100">
-    <?php include 'navbar.php'; ?>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <!-- ÜBERSCHRIFT -->
+    <header class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-green-700">Willkommen bei unserem Garten-Webshop</h1>
+        <p class="text-lg text-gray-600">Melden Sie sich an oder registrieren Sie sich.</p>
+    </header>
 
-    <div class="min-h-screen flex">
-        <!-- Left Side - Auth Forms -->
-        <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
-            <div class="w-full max-w-md">
-                <!-- Form Container -->
-                <div class="bg-white rounded-2xl shadow-xl p-8">
-                    <!-- Logo -->
-                    <div class="text-center mb-8">
-                        <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                            <i class="fas fa-sign-in-alt text-green-600 fa-lg"></i>
-                        </div>
-                        <h2 class="text-2xl font-bold text-gray-800">
-                            Willkommen bei unserem Garten-Webshop
-                        </h2>
-                        <p class="text-gray-600 mt-2">
-                            Melden Sie sich an oder registrieren Sie sich.
-                        </p>
-                    </div>
-
-                    <!-- Login Form -->
-                    <form action="login_register.php" method="POST" class="space-y-6" id="loginForm">
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Benutzername</label>
-                            <input
-                                type="text"
-                                name="username"
-                                required
-                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                placeholder="Benutzername"
-                            />
-                        </div>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Passwort</label>
-                            <div class="relative">
-                                <input
-                                    type="password"
-                                    name="password"
-                                    required
-                                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                    placeholder="••••••••"
-                                />
-                            </div>
-                            <?php if (isset($login_error)): ?>
-                                <p class="mt-2 text-sm text-red-600"><?php echo $login_error; ?></p>
-                            <?php endif; ?>
-                        </div>
-
-                        <button
-                            type="submit"
-                            name="login"
-                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 focus:ring-4 focus:ring-green-600 focus:ring-opacity-50 transition-colors"
-                        >
-                            Anmelden
-                        </button>
-
-                        <p class="mt-6 text-center text-gray-600">
-                            Noch kein Konto?
-                            <button
-                                type="button"
-                                class="ml-1 text-green-600 hover:text-green-700 font-semibold focus:outline-none"
-                                onclick="toggleForm('register')"
-                            >
-                                Registrieren
-                            </button>
-                        </p>
-                    </form>
-
-                    <!-- Registration Form -->
-                    <form action="login_register.php" method="POST" class="space-y-6 hidden" id="registerForm">
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Benutzername</label>
-                            <input
-                                type="text"
-                                name="username"
-                                required
-                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                placeholder="Benutzername"
-                            />
-                        </div>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Passwort</label>
-                            <input
-                                type="password"
-                                name="password"
-                                required
-                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                placeholder="••••••••"
-                            />
-                        </div>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Passwort bestätigen</label>
-                            <input
-                                type="password"
-                                name="confirm_password"
-                                required
-                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors"
-                                placeholder="••••••••"
-                            />
-                            <?php if (isset($registration_error) && strpos($registration_error, 'Passwörter stimmen nicht überein') !== false): ?>
-                                <p class="mt-2 text-sm text-red-600">Passwörter stimmen nicht überein</p>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Rolle</label>
-                            <select name="role" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-600 focus:border-transparent transition-colors">
-                                <option value="customer">Kunde</option>
-                                <option value="gardener">Gärtner</option>
-                            </select>
-                        </div>
-
-                        <button
-                            type="submit"
-                            name="register"
-                            class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 focus:ring-4 focus:ring-green-600 focus:ring-opacity-50 transition-colors"
-                        >
-                            Registrieren
-                        </button>
-
-                        <p class="mt-6 text-center text-gray-600">
-                            Bereits ein Konto?
-                            <button
-                                type="button"
-                                class="ml-1 text-green-600 hover:text-green-700 font-semibold focus:outline-none"
-                                onclick="toggleForm('login')"
-                            >
-                                Anmelden
-                            </button>
-                        </p>
-                    </form>
-                </div>
+    <!-- ANMELDEFORMULAR -->
+    <div class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-md">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Anmelden</h2>
+        <?php if (!empty($login_error)): ?>
+            <!-- ANZEIGE VON FEHLERN BEIM ANMELDEN -->
+            <p class="text-red-500 text-sm mb-4"><?php echo htmlspecialchars($login_error); ?></p>
+        <?php endif; ?>
+        <form action="" method="POST">
+            <!-- BENUTZERNAME -->
+            <div class="mb-4">
+                <label for="username" class="block text-gray-700 text-sm font-bold mb-2">Benutzername</label>
+                <input type="text" id="username" name="username" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
             </div>
-        </div>
-
-        <!-- Right Side - Image -->
-        <div
-            class="hidden lg:block lg:w-1/2 bg-cover bg-center"
-            style="background-image: url('https://images.unsplash.com/photo-1520412099551-62b6bafeb5bb?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')"
-        >
-            <div class="h-full bg-transparent bg-opacity-50 flex items-center justify-center">
-                <div class="text-center text-white px-12">
-                    <h2 class="text-4xl font-bold mb-6">Dein grüner Raum, unsere Auswahl.</h2>
-                    <p class="text-xl">Entdecke unsere Auswahl an Gartenutensilien und Dienstleistungen.</p>
-                </div>
+            <!-- PASSWORT -->
+            <div class="mb-6">
+                <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Passwort</label>
+                <input type="password" id="password" name="password" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
             </div>
-        </div>
+            <!-- ANMELDEN-BUTTON -->
+            <button type="submit" name="login" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                Anmelden
+            </button>
+        </form>
+        <!-- LINK ZUR REGISTRIERUNG -->
+        <p class="text-center text-sm mt-4">
+            Noch kein Konto? <a href="#register" class="text-green-500 hover:underline">Registrieren</a>
+        </p>
     </div>
 
-    <footer class="bg-green-700 text-white p-4">
-        <div class="container mx-auto text-center">
-            <p>&copy; 2025 Garten-Webshop</p>
-        </div>
+    <!-- REGISTRIERUNGSFORMULAR -->
+    <div id="register" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mt-4 w-full max-w-md">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Registrieren</h2>
+        <!-- ANZEIGE VON REGISTRIERUNGSFEHLERN ODER ERFOLGSNACHRICHTEN -->
+        <?php if (!empty($registration_error)): ?>
+            <p class="text-red-500 text-sm mb-4"><?php echo htmlspecialchars($registration_error); ?></p>
+        <?php elseif (!empty($registration_success)): ?>
+            <p class="text-green-500 text-sm mb-4"><?php echo htmlspecialchars($registration_success); ?></p>
+        <?php endif; ?>
+        <form action="" method="POST">
+            <!-- BENUTZERNAME -->
+            <div class="mb-4">
+                <label for="register_username" class="block text-gray-700 text-sm font-bold mb-2">Benutzername</label>
+                <input type="text" id="register_username" name="username" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
+            </div>
+            <!-- PASSWORT -->
+            <div class="mb-4">
+                <label for="register_password" class="block text-gray-700 text-sm font-bold mb-2">Passwort</label>
+                <input type="password" id="register_password" name="password" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
+            </div>
+            <!-- PASSWORT BESTÄTIGEN -->
+            <div class="mb-6">
+                <label for="confirm_password" class="block text-gray-700 text-sm font-bold mb-2">Passwort bestätigen</label>
+                <input type="password" id="confirm_password" name="confirm_password" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
+            </div>
+            <!-- ROLLE -->
+            <div class="mb-6">
+                <label for="role" class="block text-gray-700 text-sm font-bold mb-2">Rolle</label>
+                <select id="role" name="role" required class="w-full px-3 py-2 border rounded focus:outline-none focus:border-green-500">
+                    <option value="customer">Kunde</option>
+                    <option value="gardener">Gärtner</option>
+                </select>
+            </div>
+            <!-- REGISTRIEREN-BUTTON -->
+            <button type="submit" name="register" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                Registrieren
+            </button>
+        </form>
+        <!-- LINK ZUR ANMELDUNG -->
+        <p class="text-center text-sm mt-4">
+            Bereits ein Konto? <a href="#login" class="text-green-500 hover:underline">Anmelden</a>
+        </p>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-8 text-center text-gray-600">
+        <p>© 2025 Garten-Webshop</p>
     </footer>
-
-    <script>
-        function toggleForm(formType) {
-            const loginForm = document.getElementById('loginForm');
-            const registerForm = document.getElementById('registerForm');
-
-            if (formType === 'register') {
-                loginForm.classList.add('hidden');
-                registerForm.classList.remove('hidden');
-            } else if (formType === 'login') {
-                loginForm.classList.remove('hidden');
-                registerForm.classList.add('hidden');
-            }
-        }
-    </script>
 </body>
 </html>
